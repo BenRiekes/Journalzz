@@ -270,7 +270,7 @@ export default function Navbar() {
                 })
 
                 setOpenSignUp(false); //Closes modal
-                navigate('/News');
+                navigate('/');
             })
             .catch (error => {
                 console.log(error);
