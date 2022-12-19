@@ -363,7 +363,7 @@ export default function Navbar() {
             
         
             <ul>
-                <CustomLink to = "/">News</CustomLink>
+                <CustomLink to = "/">Unverified News</CustomLink>
 
                 <button>
                     <CustomLink to = {link}>My Profile</CustomLink>

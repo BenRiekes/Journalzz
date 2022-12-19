@@ -55,6 +55,233 @@ exports.postJournalzz = functions.https.onCall(async (data, context) => {
 });
 
 
+//Like Function:
+exports.likePost = functions.https.onCall(async (data, context) => {
+
+
+    return new Promise (async (resolve, reject) => {
+
+
+        //Param vars:
+        const idReq = data.articleId;
+
+        //Auth and conditional validation:
+        if (!context.auth) resolve ("Must be logged in to like a post");
+
+        //Lookup user display name from uid: (can't access directly from context.auth)
+        await admin.firestore().collection("users").doc(context.auth.uid).get()
+        .then (val => { //Article Document Updating:
+
+            if (!val.data()) {
+                resolve ("Data does not exist");
+            }
+
+            const likeMap = {
+
+                likeTimestamp: Date.now() / 1000,
+
+                uid: context.auth.uid,
+
+                displayName: val.data().displayName,
+
+                pfpUrl: val.data().pfpURL,
+            }
+
+            //Update doc: (path to article user is coming from [database path])
+            const articleReference = admin.firestore().doc(`articles/${idReq}`);
+
+            articleReference.set ({
+                articleLikes: admin.firestore.FieldValue.arrayUnion(likeMap)
+            }, {
+                merge: true,
+            })
+
+            .then (val => { //User document updating
+                
+                const userReference = admin.firestore().doc(`users/${context.auth.uid}`);
+
+                userReference.set ({
+                    likedArticles: admin.firestore.FieldValue.arrayUnion(idReq)
+                }, {
+                    merge: true,
+                })
+
+                .then (val => {
+                    resolve ("Like Success");
+
+                })
+                .catch (error => {
+                    functions.logger.error(error); //logs error to google cloud platform log
+                    reject ("An error occured");
+                })
+            })
+            
+            .catch (error => {
+                functions.logger.error(error); //logs error to google cloud platform log
+                reject ("An error occured");
+            })
+            
+        })
+        
+        .catch (error => {
+            functions.logger.error(error); //logs error to google cloud platform log
+
+            reject ("An error occured");
+        })      
+    })
+})
+
+
+//Repost:
+exports.repost = functions.https.onCall(async (data, context) => {
+
+    return new Promise (async (resolve, reject) =>  {
+
+        //Param vars:
+        const idReq = data.articleId;
+
+        //Auth and conditional validation:
+        if (!context.auth) resolve ("Must be logged in to repost");
+
+        //Lookup user display name from uid: (can't access directly from context.auth)
+        await admin.firestore().collection("users").doc(context.auth.uid).get()
+        .then (val => {
+
+            if (!val.data()) {
+                resolve("Data does not exist");
+            }
+
+            const repostMap = {
+                RepostTimestamp: Date.now() / 1000,
+
+                uid: context.auth.uid,
+
+                displayName: val.data().displayName,
+
+                pfpUrl: val.data().pfpURL,
+            }
+
+            //Update doc: (path to article user is coming from [database path])
+            const articleReference = admin.firestore().doc(`articles/${idReq}`);
+
+            articleReference.set ({
+                articleRepost: admin.firestore.FieldValue.arrayUnion(repostMap)
+            }, {
+                merge: true,
+
+            }).then (val => {   //Updating user doc (only pushing article id)
+
+                const userReference = admin.firestore().doc(`users/${context.auth.uid}`);
+
+                userReference.set ({
+                    repostedArticles: admin.firestore.FieldValue.arrayUnion(idReq)
+                }, {
+                    merge: true,
+
+                }).then (val => {
+                    resolve ("Repost Success"); 
+
+                }).catch (error => {
+                    functions.logger.error(error); 
+                    reject ("An error occured");
+                })
+
+            }).catch (error => {
+                functions.logger.error(error); 
+                reject ("An error occured");
+            })
+
+        }).catch (error => {
+            functions.logger.error(error); 
+            reject ("An error occured");
+        })
+    })
+})
+
+
+//Unlike Post:
+exports.unlikePost = functions.https.onCall(async (data, context) => {
+
+    return new Promise (async (resolve, reject) => {
+
+        //Param Vars:
+        const idReq = data.articleId; 
+
+        //Auth and conditional validation:
+        if (!context.auth) resolve ("Must be logged in to unlike a post");
+
+        //Article look up
+        await admin.firestore().collection("articles").doc(idReq).get()
+        .then (val => { //Article Likes update 
+
+            let articleLikes = val.data().articleLikes; 
+
+            let dontPop = []; 
+
+            for (let i of articleLikes)  {
+
+                if (i.uid != context.auth.uid) {
+
+                    dontPop.push(i); 
+                }
+            }
+
+            admin.firestore().collection("articles").doc(idReq).set({
+                articleLikes: dontPop
+            }, {
+                merge: true 
+            })
+
+            //=========================================================================
+
+            .then (async val => { //user liked articles update 
+
+                admin.firestore().collection("users").doc(context.auth.uid).get()
+                .then (val => {
+
+                    let dontPopArr = [];
+                    let likedArticles =  val.data().likedArticles
+
+                    for (i of likedArticles) {
+                        if (i != idReq) {
+                            dontPopArr.push(i); 
+                        }
+                    }
+
+                    admin.firestore().collection("users").doc(context.auth.uid).set ({
+                        likedArticles: dontPopArr
+
+                    }, {
+                        merge: true
+                        
+                    }).then (val => {
+                        resolve ("Successfully unliked post"); 
+
+                    }).catch (error => {
+                        functions.logger.error(error); 
+                        reject ("An error occured");
+                    })
+
+                    
+                }).catch (error => {
+                    functions.logger.error(error); 
+                    reject ("An error occured");
+                })  
+
+            }).catch (error => {
+                functions.logger.error(error); 
+                reject ("An error occured");
+            })  
+
+        }).catch (error => {
+            functions.logger.error(error); 
+            reject ("An error occured");
+        })  
+        
+    })
+})
+
+
 //Comment Function:
 exports.postComment = functions.https.onCall(async (data, context) => {
 
@@ -88,7 +315,11 @@ exports.postComment = functions.https.onCall(async (data, context) => {
 
                 commentTimestamp: Date.now() / 1000,
 
+                uid: context.auth.uid,
+
                 displayName: val.data().displayName,
+
+                pfpURL: val.data().pfpURL
             }
 
 

@@ -9,7 +9,7 @@ import 'firebase/firestore';
 import { getAuth } from "firebase/auth";
 import { httpsCallable, getFunctions } from "firebase/functions"; 
 import { auth, firestore } from "../firebase-config"; 
-import { getFirestore, Timestamp, collection, orderBy, query, where, updateDoc, getDoc, doc, QuerySnapshot, getDocs} from "firebase/firestore";
+import { getFirestore, Timestamp, collection, orderBy, query, where, limit, updateDoc, getDoc, doc, QuerySnapshot, getDocs} from "firebase/firestore";
 
 //CSS: 
 import "./CommunityStyles.css";
@@ -64,12 +64,14 @@ const News = () => {
                 truncateDesc = truncateDesc.substring(0, 75) + '...'
             }
 
+            console.log(doc.data().articleRepost);
             commNewsLocal.push(
 
                 {
                     articleId: doc.id,
 
-                    articleAuthor: doc.data().articleAuthor,
+                    articleAuthorId: doc.data().articleAuthor[0],
+                    articleAuthor: doc.data().articleAuthor[1],
                     articleTitle: doc.data().articleTitle,
                     articleDesc: truncateDesc,
                     articleContent: doc.data().articleContent,
@@ -77,21 +79,25 @@ const News = () => {
                     articlePhotoURL: doc.data().articlePhotoURL,
             
                     articleLikes: doc.data().articleLikes,
+                    articleRepost: doc.data().articleRepost,
                     articleComments: doc.data().articleComments,
                     articleTimestamp: timestamp.toLocaleString("en-US", {month: "numeric", day: "numeric", year: "numeric"}),
                 }
             )
         })
 
+        
         setCommunityNews(commNewsLocal); 
     }
 
     const handleFilterSelection = (e) => {
         e.preventDefault(); 
 
-        if (e.target.value === "All") {
+        if (e.target.value === 'All') {
             setCommFilter(['Business', 'Politics', 'Economy', 'Climate', 'Sports', 'Race', 'Food', 'Other']);
             setCommComparison('in')
+
+            console.log("x");
 
         } else {
             e.target.value && setCommFilter(e.target.value);
@@ -100,6 +106,7 @@ const News = () => {
 
         fetchCommunityNews();
     }
+
     
     const handleSearch = async (e) => {
         e.preventDefault(); 
@@ -108,55 +115,28 @@ const News = () => {
 
         const searchQuery = query(
             collection(db, "articles"),
-
-            where("articleName", "==", search),
-            orderBy("articleTimestamp", "desc"),
+            where("articleTitle", "==", search),
+            limit(1),
         );
-
         
-
+        console.log(searchQuery);
         const searchSnapshot = await getDocs(searchQuery);
 
-        let localSearchArr = []; 
+        if (searchSnapshot.empty) {
+            alert("No articles are under that name");
+        }
 
         searchSnapshot.forEach((doc) => {
 
-            //timestamp:
-            let timestampInit = doc.data().articleTimestamp * 1000;
-            let timestamp = new Date(timestampInit); 
-
-            //truncate description string:
-            let truncateDesc = doc.data().articleDesc;
-            
-            if (truncateDesc.length > 75) {
-                truncateDesc = truncateDesc.substring(0, 75) + '...'
-            }
-            
-            localSearchArr.push(
-
-                {
-                    articleId: doc.id,
-                    articleAuthor: doc.data().articleAuthor,
-                    articleTitle: doc.data().articleTitle,
-                    articleDesc: truncateDesc,
-                    articleContent: doc.data().articleContent,
-                    articleCategory: doc.data().articleCategory,
-                    articlePhotoURL: doc.data().articlePhotoURL,
-            
-                    articleLikes: doc.data().articleLikes,
-                    articleComments: doc.data().articleComments,
-                    articleTimestamp: timestamp.toLocaleString("en-US", {month: "numeric", day: "numeric", year: "numeric"}),
-                }
-            )
+            navigate('/View/' + doc.id)
         })
-
-        setCommunityNews(localSearchArr);
-        console.log(localSearchArr);
     }
 
     return (
 
         <div className = "news-wrapper">
+
+           
 
             <div className = "news-search-container">
                 <form>
@@ -171,37 +151,55 @@ const News = () => {
                 <button value = {"All"} onClick = {fetchCommunityNews}>All</button>
 
                 {colorFilters.map((filter) => {
-                    
                     return (
                         <button value = {filter} onClick = {handleFilterSelection}>{filter}</button>
                     )
                 })}
-
-               
             </div>
-            
+
+        
             <div className = "news-container">
 
                 {communityNews.map((news) => {
 
+                    let likes = news.articleLikes.length; 
+                    let reposts = news.articleRepost.length;
+                    let comments = news.articleComments.length; 
+
                     return (
 
-                        <div className = "news-item" onClick = {() => {navigate('/View/' + news.articleId)}}>
+                        <div className = "news-item">
 
-                            <h3 style = {{color: '#fff', backgroundColor: '#f21f5f', padding: '5px', borderRadius: '.5rem', width: 'fit-content'}}>
-                                #{unverifiedString}
-                            </h3>
+                            <div className = "news-item-stats">
+                                <h3 style = {{fontSize: '15px'}}>{unverifiedString}:</h3>
+                                <h3 style = {{fontSize: '15px'}}>{news.articleCategory}</h3>
 
-                            <img src = {news.articlePhotoURL} alt = "Thumbnail not found"></img>
+                                <h3 style = {{fontSize: '12px'}}
+                                    onClick = {() => {
+                                        
+                                        if (news.articleAuthorId != getAuth().currentUser.uid) {
+                                            navigate('/ViewProfile/' + news.articleAuthorId);
+                                        } else {
+                                            navigate('/Profile');
+                                        }
+                                    }}>
+
+                                {news.articleAuthor} 🖊</h3>
+                            </div>
+                            
+
+                            <img src = {news.articlePhotoURL} alt = "Thumbnail not found" 
+                                onClick = {() => {navigate('/View/' + news.articleId)}}>
+                            </img>
 
                             <h1>{news.articleTitle}</h1>
                             <h2>{news.articleDesc}</h2>
 
                             <div className = "news-item-stats">
-                                <h3>{news.articleLikes.length} 🤍</h3>
-                                <h3>{news.articleComments.length} 💬</h3>
+                                <h3>{likes} 🤍</h3>
+                                <h3>{reposts} ♻</h3>
+                                <h3>{comments} 💬</h3>
                                 <h3>{news.articleTimestamp} 🕛</h3>
-                                <h3>{news.articleCategory}</h3>
                             </div>
 
 

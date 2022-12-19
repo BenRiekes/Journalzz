@@ -15,7 +15,10 @@
     background: linear-gradient(45deg, #fff, #f21f5f);
 }
 
-/* ========================================================================== */
+
+
+
+/* #121113 ========================================================================== */
 
 .news-search-container {
     display: flex; 
@@ -27,11 +30,11 @@
     position: relative;
 
     margin: 0 auto;
-    margin-top: 2.5%;
+    margin-top: 1.5%;
     padding: 20px;
 
-    width: 85%;
-    height: fit-content;
+    width: 95%;
+    height: fit-content; 
     
     border-radius: .5rem;
 }
@@ -52,52 +55,59 @@
 
 
     color: #2d2d2d;
-    border-radius: 2rem;
+
+    border: 5px solid #ccc;
+    border-radius: .5rem;
     background-color: #fff;
 }
 
 .news-search-container button {
     margin-left: 1.5%;
-    padding: 8px;
+    padding: 10px;
     cursor: pointer;
 
     width: 10%;
-    height: fit-content;
+    height: 50%;
 
     font-size: 20px;
     font-weight: bold;
 
     color: #fff;
-    border-radius: 2rem;
+
+    border: 5px solid #ccc;
+    border-radius: .5rem;
     background-color: #2d2d2d;
+}
+
+.news-search-container button:hover {
+    background-color: #f21f5f
 }
 
 .news-filter-container {
     display: flex; 
     flex-wrap: wrap;
     flex-direction: row;
-    justify-content: space-evenly;
-    align-items: center;
+    justify-content: flex-start;
+    
 
     position: relative;
 
     margin: 0 auto;
-    margin-top: 1.5%;
+    margin-top: .5%;
     margin-bottom: 2.5%;
     padding: 20px;
 
-    width: 92.5%;
+    width: 95%;
     height: fit-content;
     
     border-radius: .5rem;
 }
 
 .news-filter-container button {
-    
-    padding: 15px;
-
-    width: 7%;
-    height: 50%;
+    margin-right: 1.5%;
+    width: fit-content;
+    height: 50px;
+    padding: 10px;
 
     font-size: 20px;
     font-weight: bold;
@@ -105,13 +115,13 @@
 
 
     color: #fff;
-    border: 2px solid #fff;
-    border-radius: 2rem;
-    background-color: #f21f5f;
+    border: 5px solid #ccc;
+    border-radius: .5rem;
+    background-color: #2d2d2d;
 }
 
 .news-filter-container button:hover {
-    background-color: #2d2d2d;
+    background-color: #f21f5f;
 }
 
 /* ========================================================================== */
@@ -124,20 +134,22 @@
     justify-items: center;
     align-items: center;
 
-    width: 95%;
+    width: 90%;
     height: fit-content;
     margin: 0 auto;
-    margin-top: 1.5%;
+    margin-bottom: 1.5%;
 
     border-radius: .5rem;
     
+    background-color: #2d2d2d;
 }
 
 .news-item {
-    width: 65%;
+    width: 70%;
     height: fit-content;
 
-    margin: 1.5%;
+    margin-top: 2.5%;
+    margin-bottom: 1.5%;
    
     padding: 15px;
 

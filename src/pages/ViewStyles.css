@@ -84,16 +84,15 @@
     align-items: center;
     justify-content: flex-start;
 
-    margin-left: 1.5%;
+    margin-left: 1%;
    
     width: 150%;
 }
 
 .view-stats button {
     text-align: left;
-
     margin-right: 2.5%;
-    margin-bottom: 1.5%;
+    
     padding: 5px;
 
     font-size: 100%;
@@ -122,14 +121,22 @@
     background-color: #f21f5f; 
 }
 
-.view-stats input {
-    text-align: left;
+.comment-input-container {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
 
+    width: 98%;
+    margin-top: 1.5%;
     margin-bottom: 1.5%;
-    margin-right: 2.5%;
-    padding: 8px;
+}
 
-    width: 45%;
+.comment-input-container input {
+    margin-right: 2.5%;
+    width: 75%;
+    padding: 5px;
+    
+    text-align: left;
     font-size: 100%;
 
     color: #fff;
@@ -137,6 +144,7 @@
     border-radius: .5rem;
     background-color: #2294fb;
 }
+
 
 .view-main-content {
     display: flex; 
@@ -182,8 +190,8 @@
 
     display: flex; 
     flex-wrap: wrap;
-    flex-direction: row;
-    justify-content: center;
+    flex-direction: column;
+    justify-content: space-between;
 
     position: relative;
 
@@ -202,18 +210,45 @@
     background-color: #2d2d2d;
 }
 
-.comment-container {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
 
-    width: 100%
+.comment-bubble {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    
+    margin-right: 2.5%;
+    margin-bottom: 1.5%;
+    width: 100%;
+
+    border-radius: 1rem;
+    background-color: #2294fb
 }
 
-.comment-container h1 {
+.comment-bubble img {
+   
+    margin-top: 1.5%;
+    margin-left: 1.5%;
+    
+    width: 45px;
+    object-fit: cover;
+    cursor: pointer;
+    border: 2px solid #ccc;
+    
+    justify-self: center;
+    border-radius: 3rem;
+}
+
+.comment-bubble h1 {
     width: fit-content;
-    padding: 5px;
 
     color: #fff;
+
+    font-size: 18px;
+    text-align: left;
+
     background-color: #2294fb;
 }
+
+
+

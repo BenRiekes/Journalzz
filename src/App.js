@@ -3,6 +3,7 @@ import Navbar from "./components/Navbar";
 import News from "./pages/News"; 
 import Profile from "./pages/Profile";
 import View from "./pages/View"; 
+import ViewProfile from "./pages/ViewProfile";
 
 function App() {
   
@@ -19,7 +20,7 @@ function App() {
          
           <Route path = "/Profile" element = {<Profile />} />
           <Route path = "/View/:article" element = {<View />} />
-
+          <Route path = "/ViewProfile/:user" element = {<ViewProfile />} />
         </Routes>
         
       </div>

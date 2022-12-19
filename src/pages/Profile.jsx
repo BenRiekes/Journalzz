@@ -25,10 +25,11 @@ const Profile = () => {
 
     //User Data States:
     const [userProfile, setUserProfile] = useState({});
-    const [entries, setEntries] = useState([]); 
+    const [journalzzCount, setJournalzzCount] = useState([]); 
     const [followers, setFollowers] = useState([]); 
     const [following, setFollowing] = useState([]);
     
+
     //Firestore Doc: 
     const [articleTitle, setArticleTitle] = useState('');
     const [articleDesc, setArticleDesc] = useState('');
@@ -38,8 +39,9 @@ const Profile = () => {
       
 
     //States for fetching all users Journalzz
-    const [allUserArticles, setAllUserArticles] = useState([]); //Array of objects
-
+    const [displayedArticles, setDisplayedArticles] = useState([]); //Array of objects
+    const [activeDisplay, setActiveDisplay] = useState(); 
+    
 
     //Storage:
     const projectId = "2IisDbV2nQeFtUCa0ps08XplVOm";
@@ -59,13 +61,14 @@ const Profile = () => {
         }
 
         fetchUserData();
-        fetchUserEntries(); 
     }, [])
 
     //Fetches: ===========================================================================================================
 
     //Fetch data from firestrore user collection document
     const fetchUserData = async () => {
+
+        const db = getFirestore(); 
 
         if (getAuth().currentUser === undefined) {
             console.log("User is not logged in");
@@ -76,80 +79,130 @@ const Profile = () => {
         if (getAuth().currentUser) {
 
             // Database | Collection | Current user
-            const userDataRef = doc(getFirestore(), "users", getAuth().currentUser.uid);
-        
+            const userDataRef = doc(db, "users", getAuth().currentUser.uid);
             const userDocSnap = await getDoc(userDataRef);
         
             if (userDocSnap.exists()) {
-              //console.log("Profile Data: ", userDocSnap.data());
         
-              // setting state
+              //Setting state
               setUserProfile(userDocSnap.data());
-              setEntries(userDocSnap.data().entries);
               setFollowers(userDocSnap.data().followers);
               setFollowing(userDocSnap.data().following);
+              
+
+                //Fetch Articles ==============================================
+                
+                const entryQuery = query (
+                    collection(db, "articles"), 
+                    where("articleAuthor", "array-contains", getAuth().currentUser.uid), orderBy("articleTimestamp", "desc")
+                );
+
+                const entryQuerySnapshot = await getDocs(entryQuery);
+
+                //Local array: 
+                let displayLocalArr = []; 
+
+                entryQuerySnapshot.forEach((doc) => {
+
+                    //timestamp:
+                    let timestampInit = doc.data().articleTimestamp * 1000;
+                    let timestamp = new Date(timestampInit); 
+
+                    //truncate description string:
+                    let truncateDesc = doc.data().articleDesc;
+                    
+                    if (truncateDesc.length > 75) {
+                        truncateDesc = truncateDesc.substring(0, 75) + '...'
+                    }
+
+                    displayLocalArr.push( 
+                        {
+                            articleId: doc.id,
+
+                            articleAuthor: doc.data().articleAuthor,
+                            articleTitle: doc.data().articleTitle,
+                            articleDesc: truncateDesc,
+                            articleContent: doc.data().articleContent,
+                            articleCategory: doc.data().articleCategory,
+                            articlePhotoURL: doc.data().articlePhotoURL,
+                    
+                            articleLikes: doc.data().articleLikes,
+                            articleComments: doc.data().articleComments,
+                            articleTimestamp: timestamp.toLocaleString("en-US", {month: "numeric", day: "numeric", year: "numeric"}),
+                        }
+                    )   
+                })
+
+                setJournalzzCount(displayLocalArr);
+                setActiveDisplay('Journalzz'); 
+                setDisplayedArticles(displayLocalArr); 
 
             } else {
-              console.log("No Data");
+                alert("User does not exist");
             }
         }
     }
 
 
-    //Fetch data for all user Journalzz entries:
-    const fetchUserEntries = async () => {
+    const fetchUserRepostLikes = async (req) => {
 
-        //database reference
         const db = getFirestore(); 
+        let displayLocalArr = [];  
+        let localPromiseArr = [];
+        let requestedFetch = []; 
 
-        //Newest to oldest
-        const entryQuery = query (
-            collection(db, "articles"), 
-            where("articleAuthor", "array-contains", getAuth().currentUser.uid), orderBy("articleTimestamp", "desc")
-        );
+        if (req === 'Likes') {
+            requestedFetch = userProfile.likedArticles;
+            setActiveDisplay('Likes'); 
 
-        const entryQuerySnapshot = await getDocs(entryQuery);
+        } else if (req = 'Repost') {
+            requestedFetch = userProfile.repostedArticles; 
+            setActiveDisplay('Repost'); 
+        }
 
-        //Local array: 
-        let entriesLocalArr = []; 
+        for (let i of requestedFetch) {
+            localPromiseArr.push(getDoc(doc(db, "articles", i))); 
+        }  
+        
+        await Promise.all(localPromiseArr)
+        .then (val => {
 
-        entryQuerySnapshot.forEach((doc) => {
+            for (let i of val) {
 
-            //timestamp:
-            let timestampInit = doc.data().articleTimestamp * 1000;
-            let timestamp = new Date(timestampInit); 
+                //timestamp:
+                let timestampInit = i.data().articleTimestamp * 1000;
+                let timestamp = new Date(timestampInit); 
 
-            //truncate description string:
-            let truncateDesc = doc.data().articleDesc;
+                //truncate description string:
+                let truncateDesc = i.data().articleDesc;
             
-            if (truncateDesc.length > 75) {
-                truncateDesc = truncateDesc.substring(0, 75) + '...'
-            }
-
-            entriesLocalArr.push( 
-                
-                {
-                    articleId: doc.id,
-
-                    articleAuthor: doc.data().articleAuthor,
-                    articleTitle: doc.data().articleTitle,
-                    articleDesc: truncateDesc,
-                    articleContent: doc.data().articleContent,
-                    articleCategory: doc.data().articleCategory,
-                    articlePhotoURL: doc.data().articlePhotoURL,
-            
-                    articleLikes: doc.data().articleLikes,
-                    articleComments: doc.data().articleComments,
-                    articleTimestamp: timestamp.toLocaleString("en-US", {month: "numeric", day: "numeric", year: "numeric"}),
+                if (truncateDesc.length > 75) {
+                    truncateDesc = truncateDesc.substring(0, 75) + '...'
                 }
-            )   
+
+                displayLocalArr.push(
+
+                    {
+                        articleId: i.id,
+
+                        articleAuthor: i.data().articleAuthor,
+                        articleTitle: i.data().articleTitle,
+                        articleDesc: truncateDesc,
+                        articleContent: i.data().articleContent,
+                        articleCategory: i.data().articleCategory,
+                        articlePhotoURL: i.data().articlePhotoURL,
+                
+                        articleLikes: i.data().articleLikes,
+                        articleComments: i.data().articleComments,
+                        articleTimestamp: timestamp.toLocaleString("en-US", {month: "numeric", day: "numeric", year: "numeric"}),
+                    }
+                )
+            }
         })
 
-        setAllUserArticles(entriesLocalArr); 
-
-        //console.log("local", entriesLocalArr);
-         
+        setDisplayedArticles(displayLocalArr); 
     }
+
 
     //Image Storage ===================================================================================================
 
@@ -236,7 +289,6 @@ const Profile = () => {
             setArticleCategory('');
 
             fetchUserData(); 
-            fetchUserEntries(); 
             
             alert("Successfully Posted!"); 
         })
@@ -247,6 +299,16 @@ const Profile = () => {
 
     }
 
+    //Display: =========================================================================================================
+
+
+    const DisplayButton = ({ onClick, children, value }) => {
+        let activeQuery = activeDisplay === value;
+
+        return (
+            <button onClick = {onClick} style = {{cursor: 'pointer', backgroundColor: activeQuery ? '#2d2d2d' :  '#f21f5f'}} >{children}</button>
+        )
+    }
 
     return (
 
@@ -260,7 +322,7 @@ const Profile = () => {
 
                     <h1>{userProfile.displayName}</h1> 
 
-                    <h2>{entries.length} Journalzz | {followers.length} Followers | {following.length} Following</h2>
+                    <h2>{journalzzCount.length} Journalzz | {followers.length} Followers | {following.length} Following</h2>
 
                     <h3>{userProfile.bio}</h3>
 
@@ -306,9 +368,24 @@ const Profile = () => {
                 </div>
 
                 
+                
                 <div className = "profile-journalzz-container">
 
-                    {allUserArticles.map((article) => {
+                    <div className = "profile-display-selection">
+                        <DisplayButton value = {'Journalzz'} onClick = {() => {
+                            fetchUserData();
+                        }}>Journalzz 🖊</DisplayButton>
+
+                        <DisplayButton value = {'Repost'} onClick = {(e) => {
+                            fetchUserRepostLikes('Repost'); 
+                        }}>Repost ♻</DisplayButton>
+
+                        <DisplayButton value= {'Likes'} onClick = {(e) => {
+                            fetchUserRepostLikes('Likes');
+                        }}>Likes ❤</DisplayButton>
+                    </div>
+
+                    {displayedArticles.map((article) => {
 
                         return (
 
@@ -326,8 +403,7 @@ const Profile = () => {
                                     <h3>{article.articleCategory}</h3>
                                 </div>
 
-                            </div>
-                            
+                            </div>   
                         ) 
                     })}
 
