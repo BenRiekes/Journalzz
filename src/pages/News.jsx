@@ -16,42 +16,53 @@ import "./CommunityStyles.css";
 
 const News = () => {
 
-    //Filter:
-    const [commFilter, setCommFilter] = useState(['Business', 'Politics', 'Economy', 'Climate', 'Sports', 'Race', 'Food', 'Other']);
-    const [commComparison, setCommComparison] = useState('in');
-    const [communityNews, setCommunityNews] = useState([]);
-    const colorFilters = ['Business', 'Politics', 'Economy', 'Climate', 'Sports', 'Race', 'Food', 'Other']; 
+    //Categories:
+    const [featured, setFeatured] = useState([]);
+    const [politics, setPolitics] = useState([]); 
+    const [business, setBusiness] = useState([]); 
+    const [economy, setEconomy] = useState([]);
+    const [climate, setClimate] = useState([]); 
+    const [race, setRace] = useState([]); 
+    const [sports, setSports] = useState([]); 
+    const [food, setFood] = useState([]);
+    const [other, setOther] = useState([]);  
+    
 
     //Search:
     const [search, setSearch] = useState(''); 
     
-    const unverifiedString = 'Unverified';
-    
     useEffect(() => {
-        fetchCommunityNews();
 
+        fetchNews("Politics");
+        fetchNews("Business");
+        fetchNews("Economy");
+        fetchNews("Climate");
+        fetchNews("Race");
+        fetchNews("Sports"); 
+        fetchNews("Food"); 
+        fetchNews("Other"); 
+       
     }, [])
+
+    
     
     //Nav:
     const navigate = useNavigate(); 
     
-    const fetchCommunityNews = async () => {
-        const db = getFirestore();
+    const fetchNews = async (queryParam) => {
+        const db = getFirestore(); 
 
-        const commNewsQuery = query(
+        const newsQuery = query(
             collection(db, "articles"),
-
-            where("articleAuthor", "!=", "JournalzzOfficial"),
-            orderBy("articleAuthor", "desc"),
-
-            where("articleCategory", commComparison, commFilter),
-            orderBy("articleTimestamp", "desc"),   
+            where("articleCategory", "==", queryParam),
+            orderBy("articleTimestamp", "desc"),
+            limit(20),
         );
-        const commNewsSnapshot = await getDocs(commNewsQuery);
+        
+        const newsQuerySnapshot = await getDocs(newsQuery); 
 
-        let commNewsLocal = []; 
-
-        commNewsSnapshot.forEach((doc) => {
+        let localArr = []; 
+        newsQuerySnapshot.forEach((doc) => {
 
             //timestamp:
             let timestampInit = doc.data().articleTimestamp * 1000;
@@ -59,19 +70,19 @@ const News = () => {
 
             //truncate description string:
             let truncateDesc = doc.data().articleDesc;
-            
             if (truncateDesc.length > 75) {
-                truncateDesc = truncateDesc.substring(0, 75) + '...'
+                truncateDesc = truncateDesc.substring(0, 50) + '...'
             }
 
-            console.log(doc.data().articleRepost);
-            commNewsLocal.push(
+
+            localArr.push(
 
                 {
                     articleId: doc.id,
 
                     articleAuthorId: doc.data().articleAuthor[0],
-                    articleAuthor: doc.data().articleAuthor[1],
+                    articleAuthorName: doc.data().articleAuthor[1],
+
                     articleTitle: doc.data().articleTitle,
                     articleDesc: truncateDesc,
                     articleContent: doc.data().articleContent,
@@ -79,32 +90,49 @@ const News = () => {
                     articlePhotoURL: doc.data().articlePhotoURL,
             
                     articleLikes: doc.data().articleLikes,
+                    articleLikesNum: doc.data().articleLikes.length,
+
                     articleRepost: doc.data().articleRepost,
+                    articleRepostNum: doc.data().articleRepost.length,
+
                     articleComments: doc.data().articleComments,
+                    articleCommentsNum: doc.data().articleComments.length,
+
                     articleTimestamp: timestamp.toLocaleString("en-US", {month: "numeric", day: "numeric", year: "numeric"}),
                 }
-            )
+            )   
         })
 
-        
-        setCommunityNews(commNewsLocal); 
-    }
-
-    const handleFilterSelection = (e) => {
-        e.preventDefault(); 
-
-        if (e.target.value === 'All') {
-            setCommFilter(['Business', 'Politics', 'Economy', 'Climate', 'Sports', 'Race', 'Food', 'Other']);
-            setCommComparison('in')
-
-            console.log("x");
-
-        } else {
-            e.target.value && setCommFilter(e.target.value);
-            setCommComparison('==')
+        //Avoids promise (set state inside of async function):
+        switch (queryParam) {
+            case "Politics":
+                setPolitics(localArr);
+                break;
+            case "Business":
+                setBusiness(localArr);
+                break;
+            case "Economy":
+                setEconomy(localArr);
+                break;
+            case "Climate":
+                setClimate(localArr);
+                break;
+            case "Race":
+                setRace(localArr);
+                break;
+            case "Sports":
+                setSports(localArr);
+                break;
+            case "Food":
+                setFood(localArr);
+                break;
+            case "Other":
+                setOther(localArr);
+                break;
+            default: 
+                console.error("Invalid Query Parameter: " + queryParam); 
+                return;
         }
-
-        fetchCommunityNews();
     }
 
     
@@ -132,82 +160,139 @@ const News = () => {
         })
     }
 
+    const NewsItem = ({ category }) => {
+
+        return (
+
+            category.map((ref) => {
+
+                return (
+                    
+                    <div className = "news-item">
+
+                        <img 
+                            src = {ref.articlePhotoURL}
+                            alt = "No Photo Found"
+
+                            onClick = {() => {
+                                navigate('/View/' + ref.articleId);
+                            }}>                  
+                        </img>
+
+                        <h1>
+                            {ref.articleTitle}
+                        </h1>
+
+                        <h2>{ref.articleDesc}</h2>
+
+                        <div className = "news-item-button-container">
+
+                            <button onClick = {() => {
+
+                                if (getAuth().currentUser.uid != ref.articleAuthorId) {
+                                    navigate('/ViewProfile/' + ref.articleAuthorId)
+                                } else {
+                                    navigate('/Profile'); 
+                                }
+                                }}>
+                            {ref.articleAuthorName} 🖊</button>
+
+                            <button>{ref.articleLikesNum} 🤍</button>
+                            <button>{ref.articleRepostNum} ♻</button>
+                            <button>{ref.articleCommentsNum} 💬</button>
+                            <button>{ref.articleTimestamp} 🕛</button>
+
+                        </div>
+                    </div>
+                )
+            })
+        )
+            
+    }
+
     return (
 
         <div className = "news-wrapper">
 
-           
 
-            <div className = "news-search-container">
-                <form>
-                    <input type = "text" placeholder= "Search news by article name..." onChange = {(e) => setSearch(e.target.value)}></input>
-                </form>
+            <div className = "news-view-container">
+                <h1>#Politics</h1>
 
-                <button onClick = {handleSearch}>🔎</button>
-            </div>
-
-            <div className = "news-filter-container">
-
-                <button value = {"All"} onClick = {fetchCommunityNews}>All</button>
-
-                {colorFilters.map((filter) => {
-                    return (
-                        <button value = {filter} onClick = {handleFilterSelection}>{filter}</button>
-                    )
-                })}
-            </div>
-
-        
-            <div className = "news-container">
-
-                {communityNews.map((news) => {
-
-                    let likes = news.articleLikes.length; 
-                    let reposts = news.articleRepost.length;
-                    let comments = news.articleComments.length; 
-
-                    return (
-
-                        <div className = "news-item">
-
-                            <div className = "news-item-stats">
-                                <h3 style = {{fontSize: '15px'}}>{unverifiedString}:</h3>
-                                <h3 style = {{fontSize: '15px'}}>{news.articleCategory}</h3>
-
-                                <h3 style = {{fontSize: '12px'}}
-                                    onClick = {() => {
-                                        
-                                        if (news.articleAuthorId != getAuth().currentUser.uid) {
-                                            navigate('/ViewProfile/' + news.articleAuthorId);
-                                        } else {
-                                            navigate('/Profile');
-                                        }
-                                    }}>
-
-                                {news.articleAuthor} 🖊</h3>
-                            </div>
-                            
-
-                            <img src = {news.articlePhotoURL} alt = "Thumbnail not found" 
-                                onClick = {() => {navigate('/View/' + news.articleId)}}>
-                            </img>
-
-                            <h1>{news.articleTitle}</h1>
-                            <h2>{news.articleDesc}</h2>
-
-                            <div className = "news-item-stats">
-                                <h3>{likes} 🤍</h3>
-                                <h3>{reposts} ♻</h3>
-                                <h3>{comments} 💬</h3>
-                                <h3>{news.articleTimestamp} 🕛</h3>
-                            </div>
-
-
-                        </div>
-                    )
-                })}
+                <div className = "news-view">                   
+                    <NewsItem category = {politics} />
+                </div>
 
             </div>
+            
+
+            <div className = "news-view-container">
+                <h1>#Business</h1>
+
+                <div className = "news-view">                   
+                    <NewsItem category = {business} />                   
+                </div>
+
+            </div>
+            
+
+            <div className = "news-view-container">
+                <h1>#Economy</h1>
+
+                <div className = "news-view">                   
+                    <NewsItem category = {economy} />
+                </div>
+
+            </div>
+            
+
+            <div className = "news-view-container">
+                <h1>#Climate</h1>
+
+                <div className = "news-view">    
+                    <NewsItem category = {climate} />
+                </div>
+
+            </div>
+            
+
+            <div className = "news-view-container">
+                <h1>#Race</h1>
+
+                <div className = "news-view">                   
+                    <NewsItem category = {race} />
+                </div>
+
+            </div>
+            
+
+            <div className = "news-view-container">
+                <h1>#Sports</h1>
+
+                <div className = "news-view">
+                    <NewsItem category = {sports} /> 
+                </div>
+
+            </div>
+            
+            <div className = "news-view-container">
+                <h1>#Food</h1>
+
+                <div className = "news-view">
+                    <NewsItem category = {food} />
+                </div>
+
+            </div>
+            
+            <div className = "news-view-container" style = {{marginBottom: '2.5%'}}>
+                <h1>#Other</h1>
+
+                <div className = "news-view">
+                    <NewsItem category = {other} />
+                </div>
+
+            </div>
+
+            
         </div>
     )
 }

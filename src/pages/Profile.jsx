@@ -25,19 +25,13 @@ const Profile = () => {
 
     //User Data States:
     const [userProfile, setUserProfile] = useState({});
-    const [journalzzCount, setJournalzzCount] = useState([]); 
+    const [journalzz, setJournalzz] = useState([]); 
     const [followers, setFollowers] = useState([]); 
     const [following, setFollowing] = useState([]);
     
+    const [openPostModal, setOpenPostModal] = useState(false); 
 
-    //Firestore Doc: 
-    const [articleTitle, setArticleTitle] = useState('');
-    const [articleDesc, setArticleDesc] = useState('');
-    const [articleContent, setArticleContent] = useState(''); 
-    const [articlePhotoURL, setArticlePhotoURL] = useState('');
-    const [articleCategory, setArticleCategory] = useState('');
-      
-
+   
     //States for fetching all users Journalzz
     const [displayedArticles, setDisplayedArticles] = useState([]); //Array of objects
     const [activeDisplay, setActiveDisplay] = useState(); 
@@ -88,7 +82,7 @@ const Profile = () => {
               setUserProfile(userDocSnap.data());
               setFollowers(userDocSnap.data().followers);
               setFollowing(userDocSnap.data().following);
-              
+              setJournalzz(userDocSnap.data().entries);
 
                 //Fetch Articles ==============================================
                 
@@ -115,11 +109,14 @@ const Profile = () => {
                         truncateDesc = truncateDesc.substring(0, 75) + '...'
                     }
 
+                    
                     displayLocalArr.push( 
                         {
                             articleId: doc.id,
 
-                            articleAuthor: doc.data().articleAuthor,
+                            articleAuthorId: doc.data().articleAuthor[0],
+                            articleAuthorName: doc.data().articleAuthor[1],
+
                             articleTitle: doc.data().articleTitle,
                             articleDesc: truncateDesc,
                             articleContent: doc.data().articleContent,
@@ -127,16 +124,21 @@ const Profile = () => {
                             articlePhotoURL: doc.data().articlePhotoURL,
                     
                             articleLikes: doc.data().articleLikes,
+                            articleLikesNum: doc.data().articleLikes.length,
+
+                            articleRepost: doc.data().articleRepost,
+                            articleRepostNum: doc.data().articleRepost.length,
+
                             articleComments: doc.data().articleComments,
+                            articleCommentsNum: doc.data().articleComments.length,
+
                             articleTimestamp: timestamp.toLocaleString("en-US", {month: "numeric", day: "numeric", year: "numeric"}),
                         }
                     )   
                 })
 
-                setJournalzzCount(displayLocalArr);
                 setActiveDisplay('Journalzz'); 
                 setDisplayedArticles(displayLocalArr); 
-
             } else {
                 alert("User does not exist");
             }
@@ -185,7 +187,9 @@ const Profile = () => {
                     {
                         articleId: i.id,
 
-                        articleAuthor: i.data().articleAuthor,
+                        articleAuthorId: i.data().articleAuthor[0],
+                        articleAuthorName: i.data().articleAuthor[1],
+
                         articleTitle: i.data().articleTitle,
                         articleDesc: truncateDesc,
                         articleContent: i.data().articleContent,
@@ -193,7 +197,14 @@ const Profile = () => {
                         articlePhotoURL: i.data().articlePhotoURL,
                 
                         articleLikes: i.data().articleLikes,
+                        articleLikesNum: i.data().articleLikes.length,
+
+                        articleRepost: i.data().articleRepost,
+                        articleRepostNum: i.data().articleRepost.length, 
+
                         articleComments: i.data().articleComments,
+                        articleCommentsNum: i.data().articleComments.length,
+
                         articleTimestamp: timestamp.toLocaleString("en-US", {month: "numeric", day: "numeric", year: "numeric"}),
                     }
                 )
@@ -204,132 +215,133 @@ const Profile = () => {
     }
 
 
-    //Image Storage ===================================================================================================
-
-    const client = ipfsHttpClient ({
-        host: 'ipfs.infura.io',
-        port: 5001,
-        protocol: 'https',
-        headers: {
-            authorization: authorization,
-        },
-    });
-
-    //Upload To Storage:
-    const uploadPhotoURLToIPFS = async (e) => {
-
-        //Decodes fake path to real path:
-        var file = e.target.files[0]
-        let reader = new FileReader()
-
-        reader.readAsDataURL(file)
-
-        reader.onload = () => {
-            file = reader.result;   
-        };
-
-        reader.onerror = function (error) {
-            console.log('Error: ', error);
-        }
-        
-        const subdomain = 'https://journalzz.infura-ipfs.io';
-        
-        try {
-            const added = await client.add({ content: file});
-            const URL = `${subdomain}/ipfs/${added.path}`; 
-
-            console.log(URL); 
-            setArticlePhotoURL(URL);
-
-            return URL; 
-
-        } catch (error) {
-            console.log("Error Uploading Files TO IPFS"); 
-        }
-    }
+    
 
     //Handlers: =========================================================================================================
+    const Post = () => {
 
-    //Category Handler:
-    const handleCategory = (e) => {
-        e.preventDefault(); 
-        
-        e.target.value && setArticleCategory(e.target.value); 
-    }
+        //Firestore Doc: 
+        const [articleTitle, setArticleTitle] = useState('');
+        const [articleDesc, setArticleDesc] = useState('');
+        const [articleContent, setArticleContent] = useState(''); 
+        const [articlePhotoURL, setArticlePhotoURL] = useState('');
+        const [articleCategory, setArticleCategory] = useState('');
 
-    //Post Handler:
-    const handlePost = async (e) => {
-        e.preventDefault();
 
-        //Firebase function: function instance https | name of func in indexjs as a string 
-        const firebaseJournalzz = httpsCallable(getFunctions(), "postJournalzz");
+        //Post Handler:
+        const handlePost = async (e) => {
+            e.preventDefault();
 
-        //passing in const from index.js | match global useState(s)
-        firebaseJournalzz({
-            title: articleTitle,
-            desc: articleDesc,
-            content: articleContent,
-            photo: articlePhotoURL,
-            category: articleCategory,
-        })
+            //Firebase function: function instance https | name of func in indexjs as a string 
+            const firebaseJournalzz = httpsCallable(getFunctions(), "postJournalzz");
 
-        .then(val => {
+            //passing in const from index.js | match global useState(s)
+            firebaseJournalzz({
+                title: articleTitle,
+                desc: articleDesc,
+                content: articleContent,
+                photo: articlePhotoURL,
+                category: articleCategory,
+            })
 
-            console.log(val.data.result);
+            .then(val => {
+
+                //Does not return a promise so using result instead of just .data()
+                if (val.data.result != "Post Success") {
+                    alert("An error occured while posting");
+                    return;
+                }
+
+                //Reset form:
+                setOpenPostModal(false);
+                setArticleTitle('');
+                setArticleDesc('');
+                setArticleContent('');
+                setArticlePhotoURL('');
+                setArticleCategory('');
+
+                fetchUserData(); 
+                
+                alert("Successfully Posted!"); 
+            })
+
+            .catch(error => {
+                console.log("An error occured: " + error)
+            })
+
+        }
+
+
+        //Category Handler:
+        const handleCategory = (e) => {
+            e.preventDefault(); 
             
-            if (val.data.result != "Post Success") {
-                alert("An error occured while posting")
+            e.target.value && setArticleCategory(e.target.value); 
+        }
+
+        //Image Storage 
+        const client = ipfsHttpClient ({
+            host: 'ipfs.infura.io',
+            port: 5001,
+            protocol: 'https',
+            headers: {
+                authorization: authorization,
+            },
+        });
+
+        //Upload To Storage:
+        const uploadPhotoURLToIPFS = async (e) => {
+
+            //Decodes fake path to real path:
+            var file = e.target.files[0]
+            let reader = new FileReader()
+
+            reader.readAsDataURL(file)
+
+            reader.onload = () => {
+                file = reader.result;   
+            };
+
+            reader.onerror = function (error) {
+                console.log('Error: ', error);
             }
-
-            //Reset form:
-            setArticleTitle('');
-            setArticleDesc('');
-            setArticleContent('');
-            setArticlePhotoURL('');
-            setArticleCategory('');
-
-            fetchUserData(); 
             
-            alert("Successfully Posted!"); 
-        })
+            const subdomain = 'https://journalzz.infura-ipfs.io';
+            
+            try {
+                const added = await client.add({ content: file});
+                const URL = `${subdomain}/ipfs/${added.path}`; 
 
-        .catch(error => {
-            console.log("An error occured: " + error)
-        })
+                console.log(URL); 
+                setArticlePhotoURL(URL);
 
-    }
+                return URL; 
 
-    //Display: =========================================================================================================
+            } catch (error) {
+                console.log("Error Uploading Files TO IPFS"); 
+            }
+        }
 
-
-    const DisplayButton = ({ onClick, children, value }) => {
-        let activeQuery = activeDisplay === value;
+        if (openPostModal == false) {
+            return null; 
+        }
 
         return (
-            <button onClick = {onClick} style = {{cursor: 'pointer', backgroundColor: activeQuery ? '#2d2d2d' :  '#f21f5f'}} >{children}</button>
-        )
-    }
 
-    return (
+            <div className = "post-modal"> 
+                
+                <div className = "post-modal-container">
 
-        <div className = "profile-wrapper">
-            <div className = "profile-container">
+                    <div className = "post-modal-header"> 
+                        <h1>Your Journalzz Entry 🖊</h1>
 
-                <img className = "profile-background-img" src = {userProfile.backgroundURL} alt = "No Background Picture Found"></img>
-
-                <div className = "profile-container-stats">
-                    <img src = {userProfile.pfpURL} alt = "No PFP Found"></img>
-
-                    <h1>{userProfile.displayName}</h1> 
-
-                    <h2>{journalzzCount.length} Journalzz | {followers.length} Followers | {following.length} Following</h2>
-
-                    <h3>{userProfile.bio}</h3>
-
-                </div>
-
-                <div className = "post-container">
-                    <h1>New Journalzz Entry</h1>
+                        <button onClick = {() => {
+                            setArticleTitle('');
+                            setArticleDesc('');
+                            setArticleContent('');
+                            setOpenPostModal(false); 
+                        }}>X</button>
+                    </div>
 
                     <form>
 
@@ -341,15 +353,16 @@ const Profile = () => {
                             onChange = {(e) => setArticleDesc(e.target.value)} required>
                         </input>
 
-                        <input  type = "text" placeholder = "Contents" style = {{ height: 100}}
+                        <textarea  type = "text" placeholder = "Contents" style = {{ height: '150px'}}
                             onChange = {(e) => setArticleContent(e.target.value)} required>
-                        </input>
+                        </textarea>
 
-                        <input type = "file" accept = "image/png, image/jpeg" placeholder = "select profile picture" 
+                        <input type = "file" accept = "image/png, image/jpeg" placeholder = "Select Thumbnail" 
                             onChange = {(e) => uploadPhotoURLToIPFS(e)} required>
                         </input>
 
-                        <div>
+
+                        <div className = "post-modal-category-container">
                             
                             <button value = {"Business"} onClick = {handleCategory}>Business</button>
                             <button value = {"Politics"} onClick = {handleCategory}>Politics</button>
@@ -360,18 +373,76 @@ const Profile = () => {
                             <button value = {"Race"} onClick = {handleCategory}>Race</button>
                             <button value = {"Food"} onClick = {handleCategory}>Food</button>
                             <button value = {"Other"} onClick = {handleCategory}>Other</button>
-                        </div>
-
-                        <button onClick = {handlePost}>Post</button>
+                        </div>    
                     </form>
 
+                    <button className = "post-modal-submit" 
+                        onClick = {handlePost}>
+                    Post +</button>
+
+                </div>
+            </div>
+        )
+    }
+
+
+    const DisplayButton = ({ onClick, children, value }) => {
+        let activeQuery = activeDisplay === value;
+
+        return (
+            <button onClick = {onClick} style = {{cursor: 'pointer', backgroundColor: activeQuery ? '#f21f5f'  : '#2d2d2d' }} >{children}</button>
+        )
+    }
+    
+    return (
+
+       
+        <div className = "profile-wrapper">
+            <Post/>
+
+            <div className = "profile-container">
+
+                <img className = "profile-background-img" 
+                    src = {userProfile.backgroundURL} 
+                    alt = "No Background Picture Found"> 
+                </img>
+
+                <div className = "profile-info-container">
+
+                    <div className = "profile-picture-container">
+                        <img 
+                            src = {userProfile.pfpURL}
+                            alt = "No pfp found">
+                        </img>
+                    </div>
+                
+                    <div className = "profile-stats">
+                        <h1>
+                            {userProfile.displayName}
+                        </h1>
+
+                        <button>⚙</button>
+                        
+                        <button onClick = {() => {
+                            setOpenPostModal(true);
+                        }}>+</button>
+
+                        <h2>
+                            {journalzz.length} Journalzz&nbsp;&nbsp;
+                            {followers.length} Followers&nbsp;&nbsp;
+                            {following.length} Following
+                        </h2>
+
+                        <h3>{userProfile.bio}</h3>
+                    </div>
+                    
                 </div>
 
-                
-                
+
                 <div className = "profile-journalzz-container">
 
                     <div className = "profile-display-selection">
+
                         <DisplayButton value = {'Journalzz'} onClick = {() => {
                             fetchUserData();
                         }}>Journalzz 🖊</DisplayButton>
@@ -383,36 +454,61 @@ const Profile = () => {
                         <DisplayButton value= {'Likes'} onClick = {(e) => {
                             fetchUserRepostLikes('Likes');
                         }}>Likes ❤</DisplayButton>
+
                     </div>
 
-                    {displayedArticles.map((article) => {
 
-                        return (
+                    <div className = "journalzz-item-container">
 
-                            <div className = "profile-journalzz-container-dis" onClick = {() => {navigate('/View/' + article.articleId)}}>
-                                
-                                <img src = {article.articlePhotoURL} alt = "Thumbnail Not Found"></img>
+                        {displayedArticles.map((ref) => {
 
-                                <h1>{article.articleTitle}</h1>
-                                <h2>{article.articleDesc}</h2>
+                            return (
 
-                                <div className = "profile-journalzz-stats">
-                                    <h3>{article.articleLikes.length} 🤍</h3>
-                                    <h3>{article.articleComments.length} 💬</h3>
-                                    <h3>{article.articleTimestamp} 🕛</h3>
-                                    <h3>{article.articleCategory}</h3>
+                                <div className = "journalzz-item"> 
+
+                                    <img 
+                                        src = {ref.articlePhotoURL}
+                                        alt = "No Photo Found"
+
+                                        onClick = {() => {
+                                            navigate('/View/' + ref.articleId);
+                                        }}>
+                                        
+                                    </img>
+
+                                    <h1 style = {{padding: '5px', borderRadius: '.5rem', backgroundColor: '#2d2d2d'}}>
+                                        {ref.articleCategory} |&nbsp;
+                                        {ref.articleTitle}
+                                    </h1>
+
+                                    <h2>{ref.articleDesc}</h2>
+
+                                    <div className = "jourzalzz-item-button-container">
+
+                                        <button onClick = {() => {
+
+                                            if (getAuth().currentUser.uid != ref.articleAuthorId) {
+                                                navigate('/ViewProfile/' + ref.articleAuthorId)
+                                            }
+                                        }}>{ref.articleAuthorName} 🖊</button>
+
+                                        <button>{ref.articleLikesNum} 🤍</button>
+                                        <button>{ref.articleRepostNum} ♻</button>
+                                        <button>{ref.articleCommentsNum} 💬</button>
+                                        <button>{ref.articleTimestamp} 🕛</button>
+                                    </div>
+
                                 </div>
+                            )})}
 
-                            </div>   
-                        ) 
-                    })}
+                    </div>         
 
                 </div>
 
             </div>
 
         </div>
-        
+    
     )
 }
 

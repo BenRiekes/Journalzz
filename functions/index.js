@@ -19,7 +19,7 @@ exports.postJournalzz = functions.https.onCall(async (data, context) => {
     if (!context.auth) return {result: "Must be logged in to create a post"}; 
 
     //Conditional Validation:
-    if (titleReq != null && (titleReq.length > 30 || titleReq.length < 1)) return {result: "Title must be in between 1 and 30 characters"};
+    if (titleReq != null && (titleReq.length > 144 || titleReq.length < 1)) return {result: "Title must be in between 1 and 30 characters"};
     if (descReq != null && (descReq.length > 144 || descReq.length < 1)) return {result: "Description must be in between 1 and 144 characters"}; 
     if (contentReq != null && (contentReq.length < 144 || contentReq.length > 100000)) return {result: "Content must be in between 144 and 100000 characters"}; 
 
@@ -48,8 +48,20 @@ exports.postJournalzz = functions.https.onCall(async (data, context) => {
 
         articleLikes: [],
 
-    })
+        articleRepost: [],
 
+    }).then (val => {
+
+        admin.firestore().collection("users").doc(context.auth.uid).update ({
+            entries: admin.firestore.FieldValue.arrayUnion(val.id)
+        }, {
+            merge: true
+        })
+
+    }).catch (error => {
+        functions.logger.error(error); 
+        reject ("An error occured");
+    })
     
     return {result: "Post Success"};
 });
@@ -81,10 +93,6 @@ exports.likePost = functions.https.onCall(async (data, context) => {
                 likeTimestamp: Date.now() / 1000,
 
                 uid: context.auth.uid,
-
-                displayName: val.data().displayName,
-
-                pfpUrl: val.data().pfpURL,
             }
 
             //Update doc: (path to article user is coming from [database path])
@@ -132,73 +140,6 @@ exports.likePost = functions.https.onCall(async (data, context) => {
 })
 
 
-//Repost:
-exports.repost = functions.https.onCall(async (data, context) => {
-
-    return new Promise (async (resolve, reject) =>  {
-
-        //Param vars:
-        const idReq = data.articleId;
-
-        //Auth and conditional validation:
-        if (!context.auth) resolve ("Must be logged in to repost");
-
-        //Lookup user display name from uid: (can't access directly from context.auth)
-        await admin.firestore().collection("users").doc(context.auth.uid).get()
-        .then (val => {
-
-            if (!val.data()) {
-                resolve("Data does not exist");
-            }
-
-            const repostMap = {
-                RepostTimestamp: Date.now() / 1000,
-
-                uid: context.auth.uid,
-
-                displayName: val.data().displayName,
-
-                pfpUrl: val.data().pfpURL,
-            }
-
-            //Update doc: (path to article user is coming from [database path])
-            const articleReference = admin.firestore().doc(`articles/${idReq}`);
-
-            articleReference.set ({
-                articleRepost: admin.firestore.FieldValue.arrayUnion(repostMap)
-            }, {
-                merge: true,
-
-            }).then (val => {   //Updating user doc (only pushing article id)
-
-                const userReference = admin.firestore().doc(`users/${context.auth.uid}`);
-
-                userReference.set ({
-                    repostedArticles: admin.firestore.FieldValue.arrayUnion(idReq)
-                }, {
-                    merge: true,
-
-                }).then (val => {
-                    resolve ("Repost Success"); 
-
-                }).catch (error => {
-                    functions.logger.error(error); 
-                    reject ("An error occured");
-                })
-
-            }).catch (error => {
-                functions.logger.error(error); 
-                reject ("An error occured");
-            })
-
-        }).catch (error => {
-            functions.logger.error(error); 
-            reject ("An error occured");
-        })
-    })
-})
-
-
 //Unlike Post:
 exports.unlikePost = functions.https.onCall(async (data, context) => {
 
@@ -242,7 +183,7 @@ exports.unlikePost = functions.https.onCall(async (data, context) => {
                     let dontPopArr = [];
                     let likedArticles =  val.data().likedArticles
 
-                    for (i of likedArticles) {
+                    for (let i of likedArticles) {
                         if (i != idReq) {
                             dontPopArr.push(i); 
                         }
@@ -282,7 +223,168 @@ exports.unlikePost = functions.https.onCall(async (data, context) => {
 })
 
 
-//Comment Function:
+
+//Repost:
+exports.repost = functions.https.onCall(async (data, context) => {
+
+    return new Promise (async (resolve, reject) =>  {
+
+        //Param vars:
+        const idReq = data.articleId;
+
+        //Auth and conditional validation:
+        if (!context.auth) resolve ("Must be logged in to repost");
+
+        //Checking if user has already reposted
+        await admin.firestore().collection("users").doc(context.auth.uid).get()
+        .then (val => {
+
+            //Check if user data exist
+            if (!val.data()) {
+                resolve("Data does not exist");
+            }
+
+            //Check to see if user has already reposted (user side)
+            if (val.data().repostedArticles.includes(idReq)) {
+                resolve("You have already reposted this article"); 
+            }
+
+            //Adding repost map to article doc
+            admin.firestore().collection("articles").doc(idReq).get()
+            .then (val => {
+
+                //Check to see if article exist
+                if (!val.data()) {
+                    resolve("Data does not exist");
+                }
+
+                //Add repost map to article array field
+                admin.firestore().collection("articles").doc(idReq).update ({
+
+                    articleRepost: admin.firestore.FieldValue.arrayUnion(
+                        {
+                            uid: context.auth.uid, 
+                            timestamp: Date.now() / 1000
+                        }
+                    )
+                }, {
+                    merge: true
+
+                }).then (val => {
+
+                    //add doc id to user array field
+                    admin.firestore().collection("users").doc(context.auth.uid).update ({
+
+                        repostedArticles: admin.firestore.FieldValue.arrayUnion(idReq)
+                    }, {
+                        merge: true
+
+                    }).then (val => {
+                        resolve("Repost Success"); 
+
+                    }).catch (error => {
+                        functions.logger.error(error); 
+                        reject ("An error occured");
+                    })
+
+                }).catch (error => {
+                    functions.logger.error(error); 
+                    reject ("An error occured");
+                })
+
+            }).catch (error => {
+                functions.logger.error(error); 
+                reject ("An error occured");
+            })
+           
+        }).catch (error => {
+            functions.logger.error(error); 
+            reject ("An error occured");
+        })
+    })
+})
+
+
+//un repost: 
+exports.unRepost = functions.https.onCall (async (data, context) => {
+
+    return new Promise (async (resolve, reject) => {
+
+        //Param vars: 
+        const idReq = data.articleId;
+
+        //Auth and conditional validation:
+        if (!context.auth) resolve ("Must be logged in to Unrepost");
+
+        await admin.firestore().collection("users").doc(context.auth.uid).get()
+        .then (val => {
+
+            //Check if user data exist
+            if (!val.data()) {
+                resolve("Data does not exist"); 
+            }
+
+            //Check if user has reposted
+            if (!val.data().repostedArticles.includes(idReq)) {
+                resolve("Cannot unrepost and article you have not reposted"); 
+            }
+
+            
+            admin.firestore().collection("articles").doc(idReq).get()
+            .then (val => {
+
+                //Check to see if article exist
+                if (!val.data()) {
+                    resolve("Data does not exist");
+                }
+
+                //Remove repost map from article doc array field: 
+                admin.firestore().collection("articles").doc(idReq).update ({
+
+                    articleRepost: admin.firestore.FieldValue.arrayRemove(
+                        {
+                            uid: context.auth.uid, 
+                            timestamp: Date.now() / 1000 //pull up original map value 
+                        }
+                    )
+                }, {
+                    merge: true
+
+                }).then (val => {
+
+                    //Remove repost from user doc array field:
+                    admin.firestore().collection("users").doc(context.auth.uid).update ({
+
+                        repostedArticles: admin.firestore.FieldValue.arrayRemove(idReq)
+                    }, {
+                        merge: true
+
+                    }).then (val => {
+                        resolve("Successfully unreposted article");
+
+                    }).catch (error => {
+                        functions.logger.error(error); 
+                        reject ("An error occured");
+                    })
+
+                }).catch (error => {
+                    functions.logger.error(error); 
+                    reject ("An error occured");
+                })
+
+            }).catch (error => {
+                functions.logger.error(error); 
+                reject ("An error occured");
+            })
+
+        }).catch (error => {
+            functions.logger.error(error); 
+            reject ("An error occured");
+        })
+    })
+})
+
+//Comment
 exports.postComment = functions.https.onCall(async (data, context) => {
 
     return new Promise (async (resolve, reject) => {
@@ -316,10 +418,6 @@ exports.postComment = functions.https.onCall(async (data, context) => {
                 commentTimestamp: Date.now() / 1000,
 
                 uid: context.auth.uid,
-
-                displayName: val.data().displayName,
-
-                pfpURL: val.data().pfpURL
             }
 
 
@@ -332,13 +430,11 @@ exports.postComment = functions.https.onCall(async (data, context) => {
             })
             
             .then (val => { //Second .then()
-
                 resolve ("Comment Success");
             })
 
             .catch (error => {  
                 functions.logger.error(error); //logs error to google cloud platform log
-
                 reject ("An error occured");
             })
 
@@ -346,10 +442,142 @@ exports.postComment = functions.https.onCall(async (data, context) => {
 
         .catch (error => {
             functions.logger.error(error); //logs error to google cloud platform log
-
             reject ("An error occured");
         })
 
     })
 
+})
+
+
+exports.followUser = functions.https.onCall(async (data, context) => {
+
+    return new Promise (async (resolve, reject) => {
+
+        //param vars:
+        const idReq = data.uid
+
+        //Auth and conditional validation
+        if (!context.auth) resolve ("Must be logged in to follow a user"); 
+
+        //Look up sender for conditional validation
+        await admin.firestore().collection("users").doc(context.auth.uid).get()
+        .then (val => {
+
+            if (val.data().following.includes(idReq)) {
+                resolve ("You already follow this user"); 
+            }
+
+            //Adding recievers uid to the senders doc (following):
+            admin.firestore().collection("users").doc(context.auth.uid).set ({
+                following: admin.firestore.FieldValue.arrayUnion(idReq)
+            }, {
+                merge: true
+
+            }).then (val => {   //Adding senders uid to the recievers doc (followers):
+
+                admin.firestore().collection("users").doc(idReq).get()
+                .then (val => {
+
+                    let reciverFollowersArr = val.data().followers; 
+
+                    if (!val.data()) {
+                        resolve ("Follow request for a non-existent user"); 
+                    }
+
+                    if (reciverFollowersArr.includes(context.auth.uid)) {
+                        resolve ("You are already following this user"); 
+                    }
+
+                    admin.firestore().collection("users").doc(idReq).set ({
+                        followers: admin.firestore.FieldValue.arrayUnion(context.auth.uid)
+                    }, {
+                        merge: true
+
+                    }).then (val => {
+                        resolve("Successfully followed user"); 
+
+                    }).catch (error => {
+                        functions.logger.error(error);
+                        reject("An error occured"); 
+                    })
+
+                }).catch (error => {
+                    functions.logger.error(error);
+                    reject("An error occured"); 
+                })
+
+            }).catch (error => {
+                functions.logger.error(error);
+                reject("An error occured"); 
+            })
+
+        }).catch (error => {
+            functions.logger.error(error);
+            reject("An error occured"); 
+        })
+    }) 
+})
+
+
+exports.unfollowUser = functions.https.onCall(async (data, context) => {
+
+    return new Promise (async (resolve, reject) => {
+
+        //prama vars:
+        const idReq = data.uid;
+
+        //Auth and conditional validation
+        if (!context.auth) resolve ("Must be logged in to unfollow a user");
+        
+        //Look up sender for conditional validation
+        await admin.firestore().collection("users").doc(context.auth.uid).get()
+        .then (val => {
+
+            if (!val.data().following.includes(idReq)) {
+                resolve("Can not unfollow, you not currently following this user"); 
+            }
+
+
+            //Removing recievers uid from the senders doc (following):
+            admin.firestore().collection("users").doc(context.auth.uid).update ({
+                following: admin.firestore.FieldValue.arrayRemove(idReq)
+            }, {
+                merge: true
+
+            }).then (val => { //Removing senders uid from the recievers doc (followers): 
+
+                admin.firestore().collection("users").doc(idReq).get()
+                .then (val => {
+
+
+                    admin.firestore().collection("users").doc(idReq).update ({
+                        followers: admin.firestore.FieldValue.arrayRemove(context.auth.uid)
+                    }, {
+                        merge: true
+
+                    }).then (val => {
+                        resolve("Successfully unfollowed user"); 
+
+                    }).catch (error => {
+                        functions.logger.error(error);
+                        reject("An error occured"); 
+                    })
+
+                }).catch (error => {
+                    functions.logger.error(error);
+                    reject("An error occured"); 
+                })
+
+            }).catch (error => {
+                functions.logger.error(error);
+                reject("An error occured"); 
+            })
+
+        }).catch (error => {
+            functions.logger.error(error);
+            reject("An error occured"); 
+        })
+
+    })
 })

@@ -266,7 +266,10 @@ export default function Navbar() {
     
                     followers: [],
                     following: [],
-                    entries: []
+                    
+                    entries: [],
+                    likedArticles: [],
+                    repostedArticles: [],
                 })
 
                 setOpenSignUp(false); //Closes modal
@@ -354,7 +357,7 @@ export default function Navbar() {
                         setOpenLogOut(true); 
                     }
 
-                }}>Journalzz.</button>
+                }}>Journalzz. 📖</button>
 
                 <LogIn/>
                 <SignUp/>
@@ -363,10 +366,10 @@ export default function Navbar() {
             
         
             <ul>
-                <CustomLink to = "/">Unverified News</CustomLink>
+                <CustomLink to = "/">Home 🏠</CustomLink>
 
                 <button>
-                    <CustomLink to = {link}>My Profile</CustomLink>
+                    <CustomLink to = {link}>My Profile 👤</CustomLink>
                 </button>
             </ul>
         </nav>
